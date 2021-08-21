@@ -24,6 +24,7 @@ exports.newOrders = async (req, res, next) => {
       data: response.data.orders,
     });
   } catch (err) {
+    console.error(err);
     throw new Error(err);
   }
 };
@@ -49,6 +50,7 @@ const analyzeOrders = async (newOrders) => {
         );
       }
     } catch (err) {
+      console.error(err);
       throw new Error(err);
     }
   }
@@ -83,6 +85,7 @@ const splitShipstationOrder = (order) => {
     orderUpdateArray.push(tempSplitOrder);
 
   } catch (err) {
+    console.error(err);
     throw new Error(err);
   }
 
@@ -117,6 +120,7 @@ const shipstationApiCall = async (url, method, body) => {
     const response = await axios(config);
     return response;
   } catch (err) {
+    console.error(err);
     throw new Error(err);
   }
 };
