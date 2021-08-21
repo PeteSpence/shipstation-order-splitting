@@ -1,5 +1,7 @@
 const axios = require("axios");
 
+const bannerSkuPrefix = "ba001";
+
 /**
  * Receives and processes a new order webhook from ShipStation.
  */
@@ -37,20 +39,9 @@ const analyzeOrders = async (newOrders) => {
     try {
       const order = newOrders[x];
 
-      // Create an array of all the individual warehouseLocations present on the order.
-      const warehouses = [
-        ...new Set(
-          order.items.map((item) => {
-            if (item.warehouseLocation != null) {
-              return item.warehouseLocation;
-            }
-          })
-        ),
-      ];
-
       // If there are multiple warehouse locations, split the order.
-      if (warehouses.length > 1) {
-        const orderUpdateArray = splitShipstationOrder(order, warehouses);
+      if (order.items.some(i => i.sku.startsWith(bannerSkuPrefix))) {
+        const orderUpdateArray = splitShipstationOrder(order);
         await shipstationApiCall(
           "https://ssapi.shipstation.com/orders/createorders",
           "post",
@@ -68,43 +59,31 @@ const analyzeOrders = async (newOrders) => {
  * to the correct warehouse location.
  *
  * @param  {object} order an order object from the ShipStation API
- * @param {array} warehouses an array of strings containing the warehouse names
- *
  * @return {array} an array of order objects to be updated in ShipStation
  */
-const splitShipstationOrder = (order, warehouses) => {
+const splitShipstationOrder = (order) => {
   let orderUpdateArray = [];
 
-  // Loop through every warehouse present on the order.
-  for (let x = 0; x < warehouses.length; x++) {
-    try {
-      // Create a copy of the original order object.
-      let tempOrder = { ...order };
+  try {
 
-      // Give the new order a number to include the warehouse as a suffix.
-      tempOrder.orderNumber = `${tempOrder.orderNumber}-${warehouses[x]}`;
+    let tempBannerOrder = { ...order };
+    tempBannerOrder.orderNumber = `${tempBannerOrder.orderNumber}-banner`;
+    tempBannerOrder.items = tempBannerOrder.items.filter(i => i.sku.startsWith(bannerSkuPrefix));
+    orderUpdateArray.push(tempBannerOrder);
 
-      // Filter for the order items for this specific warehouse.
-      tempOrder.items = tempOrder.items.filter((item) => {
-        // If the item's warehouseLocation is null, assign it to the first warehouse present.
-        if (item.warehouseLocation == null && x === 0) {
-          item.warehouseLocation = warehouses[x];
-        }
-        return item.warehouseLocation === warehouses[x];
-      });
+    let tempSplitOrder = { ...order };
+    tempSplitOrder.orderNumber = `${tempSplitOrder.orderNumber}-split`;
+    tempSplitOrder.items = tempSplitOrder.items.filter(i => !i.sku.startsWith(bannerSkuPrefix));
 
-      // If this is not the first (primary) order, set the object to create new order in ShipStation.
-      if (x !== 0) {
-        delete tempOrder.orderKey;
-        delete tempOrder.orderId;
-        tempOrder.amountPaid = 0;
-        tempOrder.taxAmount = 0;
-        tempOrder.shippingAmopunt = 0;
-      }
-      orderUpdateArray.push(tempOrder);
-    } catch (err) {
-      throw new Error(err);
-    }
+    delete tempSplitOrder.orderKey;
+    delete tempSplitOrder.orderId;
+    tempSplitOrder.amountPaid = 0;
+    tempSplitOrder.taxAmount = 0;
+    tempSplitOrder.shippingAmopunt = 0;
+    orderUpdateArray.push(tempSplitOrder);
+
+  } catch (err) {
+    throw new Error(err);
   }
 
   return orderUpdateArray;
