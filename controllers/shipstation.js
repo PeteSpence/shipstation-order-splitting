@@ -41,7 +41,7 @@ const analyzeOrders = async (newOrders) => {
       const order = newOrders[x];
 
       // If there are multiple warehouse locations, split the order.
-      if (order.items.some(i => i.sku.startsWith(bannerSkuPrefix) && !i.sku.startsWith(bannerSkuPrefix))) {
+      if (order.items.some(i => i.sku.startsWith(bannerSkuPrefix)) && order.items.some(i => !i.sku.startsWith(bannerSkuPrefix))) {
         const orderUpdateArray = splitShipstationOrder(order);
         await shipstationApiCall(
           "https://ssapi.shipstation.com/orders/createorders",
